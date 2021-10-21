@@ -1,0 +1,28 @@
+node {
+    stage ("Pull source code from Github"){
+        git branch: 'main', url: 'https://github.com/Ujjawal2/Ujjawal2.git'
+    }
+    stage ("Build Docker file"){
+         sh  'docker image build -t $JOB_NAME:v1.$BUILD_ID .'
+         sh  'docker image tag $JOB_NAME:v1.$BUILD_ID kronos123/$JOB_NAME:v1.$BUILD_ID'
+         sh  'docker image tag $JOB_NAME:v1.$BUILD_ID kronos123/$JOB_NAME:latest' 
+    }
+    stage ("Push to Docker hub "){
+        withCredentials([string(credentialsId: 'dockerhub', variable: 'dockerhub')]) {
+    // some block
+        sh 'docker login -u kronos123 -p ${dockerhub}'
+        sh 'docker image push kronos123/$JOB_NAME:v1.$BUILD_ID'
+        sh 'docker image push kronos123/$JOB_NAME:latest'
+        sh 'docker image rmi $JOB_NAME:v1.$BUILD_ID kronos123/$JOB_NAME:v1.$BUILD_ID kronos123/$JOB_NAME:latest'
+        }
+    }
+    stage ("Deplyement in Docker"){
+        def dockerrun = 'docker run -p 8000:80 -d --name cloudknowledges kronos123/scripted-pipeline:latest'
+     def dockerrm = 'docker container rm -f cloudknowledges'
+     sshagent(['new1']) {
+   // some block
+      sh "ssh -o stricthostkeychecking=no ec2-user@172.31.43.243 ${dockerrm}"
+      sh "ssh -o stricthostkeychecking=no ec2-user@172.31.43.243 ${dockerrun}"
+}
+   }    
+    }
